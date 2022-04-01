@@ -1,8 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 const csv = require('fast-csv');
-const header = []
-const parsed = []
+let header = []
+let parsed = []
 const tratamentos = {}
 
 function tratamentoGrupo(acc, val) {
@@ -12,11 +12,28 @@ function tratamentoGrupo(acc, val) {
     ]
 }
 
-function tratamentoTelefone(acc, val) {
-    /(\(?\d{2}\)?\s)?(\d{4,7}(\-)*\d{4})/g
+function tratamentoTelefone(val) {
+    return [...(val || '').match(/(\(?\d{2}\)?\s)?(\d{4,7}(\-)*\d{4})/g) || []]
 }
 
-fs.createReadStream(path.resolve(__dirname, 'input.csv'))
+function tratamentoEmail(val) {
+    let emailArr = []
+    let emailTratado = val.trim().replace('/', ' ').split(' ')
+    for (let i = 0; i < emailTratado.length; i++) {
+        const emailMatch = (emailTratado[i] || '').match(/^[\w-.]+@([\w-]+.)+[\w-]{2,4}$/g)
+        const emailValido = emailMatch == null ? emailMatch : emailMatch[0]
+        emailArr.push(emailValido)
+    }
+    return emailArr.filter(x => x != null)
+}
+
+function usarData(arr) {     
+    const data = JSON.stringify(arr)
+    fs.writeFileSync('output.json', data);
+}
+
+const data_ = (fn) => {
+    fs.createReadStream(path.resolve(__dirname, 'input.csv'))
     .pipe(csv.parse({}))
     .on('error', error => console.error(error))
     .on('data', row => {
@@ -27,10 +44,20 @@ fs.createReadStream(path.resolve(__dirname, 'input.csv'))
                 row.reduce((acc, val, i) => {
                     if (header[i].split(' ').length > 1) {
                         const [type, ...tags] = header[i].split(" ")
-                        acc.addresses = [
-                            ...(acc.addresses || []),
-                            { type, tags, address: val }
-                        ]
+                        if (type == 'phone') {
+                            val = tratamentoTelefone(val)
+                        }
+                        else if (type == 'email') {
+                            val = tratamentoEmail(val)
+                        }
+                        if (val.length > 0) {
+                            for (const input of val) {
+                                acc.addresses = [
+                                    ...(acc.addresses || []),
+                                    { type, tags, address: input }
+                                ]
+                            }
+                        }
                     } else {
                         if (header[i] == 'group') {
                             acc.group = tratamentoGrupo(acc, val)
@@ -40,8 +67,11 @@ fs.createReadStream(path.resolve(__dirname, 'input.csv'))
                     }
                     return acc
                 }, {})
-            )
-            console.log(parsed)
+            )            
         }
     })
-    .on('end', rowCount => console.log(`Parsed ${rowCount} rows`, parsed));
+    .on('end', () => {
+        fn(parsed)
+      })
+}
+data_(usarData);
