@@ -1,4 +1,4 @@
-<h1>Convert CSV para JSON 🇺🇸</h1>
+<h1>Convert CSV to JSON 🇺🇸</h1>
 To run the application, download the code and install the dependencies. Preferably using the npm -i command. Once this is done, replace the name and directory of the file in the string field ('input.csv') on line 58:
 fs.createReadStream(path.resolve(__dirname, 'input.csv'))
 
